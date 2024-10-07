@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock, Paper, Scissors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            padding: 0;
+            margin: 0;
+        }
+
+        h1 {
+            margin-top: 5vh;
+            font-size: 5vw;
+        }
+
+        .choice-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 5vh;
+            flex-wrap: wrap;
+        }
+
+        .choice {
+            margin: 10px;
+            cursor: pointer;
+        }
+
+        .choice p {
+            font-size: 4vw;
+            border-radius: 25%;
+            border: 1px black solid;
+            padding: 2vw;
+            transition: transform 0.2s;
+        }
+
+        .choice p:hover {
+            transform: scale(1.1);
+        }
+
+        .result {
+            margin-top: 5vh;
+            font-size: 4vw;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            /* 태블릿 및 작은 화면에서는 폰트 크기 및 여백을 조정 */
+            h1 {
+                font-size: 7vw;
+            }
+
+            .choice p {
+                font-size: 6vw;
+                padding: 3vw;
+            }
+
+            .result {
+                font-size: 6vw;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* 모바일 화면에 맞게 더 작은 글자 크기 적용 */
+            h1 {
+                font-size: 9vw;
+            }
+
+            .choice p {
+                font-size: 8vw;
+                padding: 4vw;
+            }
+
+            .result {
+                font-size: 7vw;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>이영이의 가위바위보 게임</h1>
+    <div class="choice-container">
+        <div class="choice" data-choice="scissors">
+            <p>가위</p>
+        </div>
+        <div class="choice" data-choice="rock">
+            <p>바위</p>
+        </div>
+        <div class="choice" data-choice="paper">
+            <p>보</p>
+        </div>
+    </div>
+
+    <div class="result" id="result"></div>
+    <div class="system-choice" id="systemChoice"></div>
+
+    <script>
+        const choices = ['scissors', 'rock', 'paper'];
+        const resultDiv = document.getElementById('result');
+        const systemChoiceDiv = document.getElementById('systemChoice');
+
+        // 승패를 결정하는 함수
+        function determineWinner(playerChoice, systemChoice) {
+            if (playerChoice === systemChoice) {
+                return "비겼습니다!";
+            } else if (
+                (playerChoice === 'scissors' && systemChoice === 'paper') ||
+                (playerChoice === 'rock' && systemChoice === 'scissors') ||
+                (playerChoice === 'paper' && systemChoice === 'rock')
+            ) {
+                return "이겼습니다!";
+            } else {
+                return "졌습니다!";
+            }
+        }
+
+        // 플레이어가 선택했을 때 처리하는 함수
+        document.querySelectorAll('.choice').forEach(choiceElement => {
+            choiceElement.addEventListener('click', () => {
+                const playerChoice = choiceElement.getAttribute('data-choice');
+                const systemChoice = choices[Math.floor(Math.random() * 3)];
+
+                // 시스템 선택 출력
+                systemChoiceDiv.innerHTML = `시스템은 <strong>${systemChoice}</strong>를 선택했습니다.`;
+
+                // 승패 결과 출력
+                const result = determineWinner(playerChoice, systemChoice);
+                resultDiv.innerHTML = result;
+            });
+        });
+    </script>
+
+</body>
+</html>
