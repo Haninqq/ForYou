@@ -106,7 +106,23 @@
 
         player.style.left = playerX + 'px';
         player.style.top = playerY + 'px';
+        
+        //시간 설정 함수
+        function updateTime() {
+            time++;
+            const minutes = Math.floor(time / 60).toString().padStart(2, '0');
+            const seconds = (time % 60).toString().padStart(2, '0');
+            timerElement.textContent = `${minutes}:${seconds}`;
+        }
 
+        function startGameTimer() {
+            gameTimer = setInterval(updateTime, 1000); // 1초마다 시간 갱신
+        }
+
+        function stopGameTimer() {
+            clearInterval(gameTimer); // 게임 오버 시 타이머 중단
+        }
+        
         // 터치 시작 시, 터치한 위치와 플레이어 위치를 연결
         gameArea.addEventListener('touchstart', function (e) {
             if (isGameOver) return;
