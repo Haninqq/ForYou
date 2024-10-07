@@ -55,28 +55,35 @@
         let playerY = window.innerHeight / 2;
         let playerSpeed = 5;
         let isDragging = false;
+        let offsetX = 0;  // 터치 시작 시 플레이어의 위치와 터치 위치 간의 차이를 저장
+        let offsetY = 0;
 
         // 플레이어 초기 위치 설정
         player.style.left = playerX + 'px';
         player.style.top = playerY + 'px';
 
-        // 터치로 플레이어 이동
+        // 터치 시작 시 플레이어의 위치를 기준으로 이동 처리
         gameArea.addEventListener('touchstart', function (e) {
+            const touch = e.touches[0];
+            const playerRect = player.getBoundingClientRect();
+            // 터치 시작 시의 위치와 플레이어의 위치 간의 차이를 계산해 저장
+            offsetX = touch.clientX - playerRect.left;
+            offsetY = touch.clientY - playerRect.top;
             isDragging = true;
         });
 
         gameArea.addEventListener('touchmove', function (e) {
             if (isDragging) {
                 const touch = e.touches[0];
-                playerX = touch.clientX - player.offsetWidth / 2;
-                playerY = touch.clientY - player.offsetHeight / 2;
+                playerX = touch.clientX - offsetX;  // offset을 적용해 부드럽게 드래그
+                playerY = touch.clientY - offsetY;
                 player.style.left = playerX + 'px';
                 player.style.top = playerY + 'px';
             }
         });
 
         gameArea.addEventListener('touchend', function () {
-            isDragging = false;
+            isDragging = false;  // 손을 떼도 Game Over 되지 않도록 변경
         });
 
         // 적 생성 함수
@@ -115,7 +122,15 @@
                 const dy = playerY - startY;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                if (distance < 5) {
+                // 적과의 충돌 처리 - 히트박스를 플레이어 크기만큼 적용
+                const playerRect = player.getBoundingClientRect();
+                const enemyRect = enemy.getBoundingClientRect();
+                if (
+                    playerRect.left < enemyRect.right &&
+                    playerRect.right > enemyRect.left &&
+                    playerRect.top < enemyRect.bottom &&
+                    playerRect.bottom > enemyRect.top
+                ) {
                     clearInterval(moveInterval);
                     alert("Game Over!");
                     location.reload();
