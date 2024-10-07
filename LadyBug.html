@@ -187,6 +187,53 @@
             }
         }
 
+        // 충돌 감지 함수 (아이템과 플레이어)
+        function detectCollision(itemRect, playerRect) {
+            return !(
+                playerRect.right < itemRect.left ||
+                playerRect.left > itemRect.right ||
+                playerRect.bottom < itemRect.top ||
+                playerRect.top > itemRect.bottom
+            );
+        }
+
+        // 아이템과 충돌 체크 및 처리
+        function checkItemCollision() {
+            items.forEach((itemObj, index) => {
+                const item = itemObj.element;
+                const playerRect = player.getBoundingClientRect();
+                const itemRect = item.getBoundingClientRect();
+
+                if (detectCollision(itemRect, playerRect)) {
+                    item.remove(); // 아이템 제거
+                    items.splice(index, 1); // 아이템 배열에서 제거
+
+                    if (itemObj.type === 'shield') {
+                        activateShield(); // 보호막 활성화
+                    } else if (itemObj.type === 'auto-attack') {
+                        activateAutoAttack(); // 자동 공격 활성화
+                    }
+                }
+            });
+        }
+
+        // 자동 공격 활성화 함수
+        function activateAutoAttack() {
+            if (autoAttackTimeLeft <= 0) {
+                autoAttackTimeLeft = autoAttackDuration;
+                autoAttackInterval = setInterval(() => {
+                    if (autoAttackTimeLeft > 0) {
+                        autoAttack();
+                        autoAttackTimeLeft -= 500;
+                    } else {
+                        clearInterval(autoAttackInterval);
+                    }
+                }, 500); // 0.5초 간격으로 발사
+            } else {
+                autoAttackTimeLeft += autoAttackDuration; // 지속 시간 연장
+            }
+        }
+
         // 게임 루프
         function gameLoop() {
             if (isGameOver) return;
@@ -217,6 +264,7 @@
                 }
             });
 
+            checkItemCollision(); // 아이템 충돌 확인
             requestAnimationFrame(gameLoop);
         }
 
