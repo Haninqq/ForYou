@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ladybug Game</title>
+    <style>
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #gameArea {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f0f0;
+            overflow: hidden;
+        }
+
+        #player {
+            position: absolute;
+            width: 15px; /* 크기를 반으로 줄임 */
+            height: 15px; /* 크기를 반으로 줄임 */
+            background-color: red;
+            border-radius: 50%;
+        }
+
+        .enemy, .bullet {
+            position: absolute;
+            width: 15px; /* 적의 크기를 반으로 줄임 */
+            height: 15px; /* 적의 크기를 반으로 줄임 */
+            border-radius: 50%;
+        }
+
+        .enemy {
+            background-color: black;
+        }
+
+        .item {
+            position: absolute;
+            width: 10px; /* 아이템의 크기 조정 */
+            height: 10px; /* 아이템의 크기 조정 */
+            border-radius: 50%;
+        }
+
+        .item.shield {
+            background-color: blue;
+        }
+
+        .item.auto-attack {
+            background-color: pink;
+        }
+
+        .bullet {
+            width: 5px;  /* 탄환 크기 */
+            height: 5px;  /* 탄환 크기 */
+            background-color: yellow;
+        }
+
+        .shield-field {
+            position: absolute;
+            border-radius: 50%;
+            background-color: rgba(135, 206, 235, 0.5);
+            pointer-events: none;
+        }
+
+        #timer {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: rgba(128, 128, 128, 0.7); /* 반투명한 회색 */
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameArea">
+        <div id="player"></div>
+        <div id="timer">00:00</div> <!-- 시간 표시 -->
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const gameArea = document.getElementById('gameArea');
+        const timerElement = document.getElementById('timer');
+        let playerX = window.innerWidth / 2;
+        let playerY = window.innerHeight / 2;
+        let isDragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        let enemies = [];
+        let items = [];
+        let bullets = [];
+        let isGameOver = false;
+        let shieldActive = false;
+        let shieldTimeout;
+        let autoAttackInterval;
+        let autoAttackTimeLeft = 0;
+        let enemySpawnInterval = 500;
+        let enemySpawnIntervalId;
+        let shieldDuration = 5000;
+        let autoAttackDuration = 10000;
+
+        let time = 0; // 시간 변수
+        let gameTimer; // 타이머 인터벌
+
+        player.style.left = playerX + 'px';
+        player.style.top = playerY + 'px';
+
+        // 시간 업데이트 함수
+        function updateTime() {
+            time++;
+            const minutes = Math.floor(time / 60).toString().padStart(2, '0');
+            const seconds = (time % 60).toString().padStart(2, '0');
+            timerElement.textContent = `${minutes}:${seconds}`;
+        }
+
+        function startGameTimer() {
+            gameTimer = setInterval(updateTime, 1000); // 1초마다 시간 갱신
+        }
+
+        function stopGameTimer() {
+            clearInterval(gameTimer); // 게임 오버 시 타이머 중단
+        }
+
+        // 터치 시작 시, 터치한 위치와 플레이어 위치를 연결
+        gameArea.addEventListener('touchstart', function (e) {
+            if (isGameOver) return;
+            
+            const touch = e.touches[0];
+            const playerRect = player.getBoundingClientRect();
+            offsetX = touch.clientX - playerRect.left;
+            offsetY = touch.clientY - playerRect.top;
+            isDragging = true;
+        });
+
+        gameArea.addEventListener('touchmove', function (e) {
+            if (!isDragging || isGameOver) return;
+
+            const touch = e.touches[0];
+            playerX = touch.clientX - offsetX;
+            playerY = touch.clientY - offsetY;
+            player.style.left = playerX + 'px';
+            player.style.top = playerY + 'px';
+        });
+
+        gameArea.addEventListener('touchend', function () {
+            isDragging = false;
+        });
+
+        // 적 생성 함수
+        function createEnemy() {
+            const enemyCount = Math.random() < 0.5 ? 1 : 2; // 50% 확률로 한 번에 두 마리 생성
+            for (let i = 0; i < enemyCount; i++) {
+                const enemy = document.createElement('div');
+                enemy.classList.add('enemy');
+                gameArea.appendChild(enemy);
+
+                let startX, startY;
+                const side = Math.floor(Math.random() * 4);
+                switch (side) {
+                    case 0:
+                        startX = 0;
+                        startY = Math.random() * window.innerHeight;
+                        break;
+                    case 1:
+                        startX = window.innerWidth;
+                        startY = Math.random() * window.innerHeight;
+                        break;
+                    case 2:
+                        startX = Math.random() * window.innerWidth;
+                        startY = 0;
+                        break;
+                    case 3:
+                        startX = Math.random() * window.innerWidth;
+                        startY = window.innerHeight;
+                        break;
+                }
+
+                enemy.style.left = startX + 'px';
+                enemy.style.top = startY + 'px';
+
+                enemies.push({ element: enemy, x: startX, y: startY });
+            }
+        }
+
+        // 게임 루프
+        function gameLoop() {
+            if (isGameOver) return;
+
+            enemies.forEach((enemyObj, index) => {
+                const enemy = enemyObj.element;
+                const dx = playerX - enemyObj.x;
+                const dy = playerY - enemyObj.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                enemyObj.x += dx / distance * 1.5;
+                enemyObj.y += dy / distance * 1.5;
+
+                enemy.style.left = enemyObj.x + 'px';
+                enemy.style.top = enemyObj.y + 'px';
+
+                const playerRect = player.getBoundingClientRect();
+                const enemyRect = enemy.getBoundingClientRect();
+                if (
+                    playerRect.left < enemyRect.right &&
+                    playerRect.right > enemyRect.left &&
+                    playerRect.top < enemyRect.bottom &&
+                    playerRect.bottom > enemyRect.top
+                ) {
+                    if (!shieldActive) {
+                        gameOver();
+                    }
+                }
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 게임 오버 함수
+        function gameOver() {
+            isGameOver = true;
+            stopGameTimer(); // 게임 오버 시 타이머 중단
+            clearInterval(enemySpawnIntervalId);
+            clearInterval(autoAttackInterval);
+            if (shieldTimeout) clearTimeout(shieldTimeout);
+            const restart = confirm('Game Over! 다시 시작하시겠습니까?');
+            if (restart) {
+                location.reload();
+            }
+        }
+
+        // 적 생성 시작
+        function startEnemySpawn() {
+            enemySpawnIntervalId = setInterval(() => {
+                createEnemy();
+            }, enemySpawnInterval);
+        }
+
+        // 게임 시작
+        gameLoop();
+        startEnemySpawn();
+        startGameTimer(); // 게임 시작 시 타이머 시작
+
+    </script>
+
+</body>
+</html>
