@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Jump Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            overflow: hidden;
+            touch-action: manipulation; /* 터치 반응 속도 향상 */
+        }
+
+        #gameArea {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        #player {
+            position: absolute;
+            bottom: 20px;
+            left: 5vw;
+            width: 10vw;
+            height: 10vw;
+            background-color: red;
+            border-radius: 50%;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 20px;
+            width: 10vw;
+            height: 10vw;
+            background-color: black;
+            border-radius: 10px;
+        }
+
+        .result {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 5vw;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameArea">
+        <div id="player"></div>
+        <div class="result" id="result">점프해보세요!</div>
+    </div>
+
+    <script>
+        let player = document.getElementById('player');
+        let isJumping = false;
+        let gravity = 1.5;  // 중력 강화
+        let position = 0;
+        let score = 0;
+        let obstacleSpeed = 3;  // 장애물 초기 속도 (초당 px 이동)
+        let maxSpeed = 7;       // 장애물 최대 속도
+
+        // 점프 함수
+        function jump() {
+            if (isJumping) return;
+            isJumping = true;
+
+            let upInterval = setInterval(() => {
+                if (position >= 30) {
+                    clearInterval(upInterval);
+
+                    let downInterval = setInterval(() => {
+                        if (position <= 0) {
+                            clearInterval(downInterval);
+                            isJumping = false;
+                        } else {
+                            position -= gravity; // 중력을 강화하여 더 빠르게 내려오도록 설정
+                            player.style.bottom = 20 + position + 'vh';
+                        }
+                    }, 15);  // 점프 후 내려오는 속도 (빠르게 조정)
+                } else {
+                    position += 1.2;  // 점프하는 속도 (더 빠르게 설정)
+                    player.style.bottom = 20 + position + 'vh';
+                }
+            }, 15);
+        }
+
+        // 장애물 생성 함수
+        function createObstacle() {
+            let obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle');
+            obstacle.style.right = '0';
+            obstacle.style.animation = `moveObstacle ${obstacleSpeed}s linear infinite`;
+            document.getElementById('gameArea').appendChild(obstacle);
+
+            let obstacleInterval = setInterval(() => {
+                let playerRect = player.getBoundingClientRect();
+                let obstacleRect = obstacle.getBoundingClientRect();
+
+                if (obstacleRect.left < playerRect.right &&
+                    obstacleRect.right > playerRect.left &&
+                    obstacleRect.bottom > playerRect.top) {
+                    clearInterval(obstacleInterval);
+                    document.getElementById('result').innerText = "게임 오버!";
+                    setTimeout(() => location.reload(), 2000);
+                }
+            }, 20);
+
+            // 점수 증가 및 속도 증가
+            setTimeout(() => {
+                score++;
+                document.getElementById('result').innerText = `점수: ${score}`;
+                if (obstacleSpeed > maxSpeed) {
+                    obstacleSpeed -= 0.2;  // 장애물 속도를 점진적으로 빠르게 함
+                }
+            }, obstacleSpeed * 1000);
+        }
+
+        // 모바일 터치 이벤트로 점프
+        document.addEventListener('touchstart', jump);
+
+        // 일정 시간마다 장애물 생성
+        setInterval(createObstacle, 3000);
+    </script>
+
+</body>
+</html>
