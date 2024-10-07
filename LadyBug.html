@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Ladybug Game</title>
     <style>
         body {
@@ -25,12 +25,15 @@
             border-radius: 50%;
         }
 
-        .enemy {
+        .enemy, .bullet {
             position: absolute;
-            width: 30px; /* 플레이어와 동일한 크기 */
-            height: 30px; /* 플레이어와 동일한 크기 */
-            background-color: black;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
+        }
+
+        .enemy {
+            background-color: black;
         }
 
         .item {
@@ -40,20 +43,18 @@
             border-radius: 50%;
         }
 
-        .bullet {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background-color: yellow;
-            border-radius: 50%;
-        }
-
         .item.shield {
             background-color: blue;
         }
 
         .item.auto-attack {
             background-color: pink;
+        }
+
+        .bullet {
+            width: 10px;
+            height: 10px;
+            background-color: yellow;
         }
     </style>
 </head>
@@ -73,15 +74,17 @@
         let offsetY = 0;
         let enemies = [];
         let items = [];
+        let bullets = [];
         let isGameOver = false;
         let shieldCount = 0; // 방어막 횟수
         let autoAttackCount = 0; // 자동 공격 횟수
+        let bulletCooldown = false; // 자동 공격 시 총알 생성 제한
 
         // 플레이어 초기 위치 설정
         player.style.left = playerX + 'px';
         player.style.top = playerY + 'px';
 
-        // 터치 시작 시 플레이어의 위치를 기준으로 이동 처리
+        // 터치 시작 시 플레이어 이동 처리
         gameArea.addEventListener('touchstart', function (e) {
             if (isGameOver) return;
 
@@ -165,12 +168,13 @@
 
         // 자동 공격 함수
         function autoAttack() {
-            if (autoAttackCount > 0 && enemies.length > 0) {
+            if (autoAttackCount > 0 && enemies.length > 0 && !bulletCooldown) {
+                bulletCooldown = true;
                 const bullet = document.createElement('div');
                 bullet.classList.add('bullet');
                 gameArea.appendChild(bullet);
 
-                const closestEnemy = enemies[0]; // 가장 가까운 적을 선택 (간단히 첫 번째 적)
+                const closestEnemy = enemies[0]; // 가장 가까운 적을 선택
                 const bulletInterval = setInterval(() => {
                     const dx = closestEnemy.x - playerX;
                     const dy = closestEnemy.y - playerY;
@@ -194,8 +198,14 @@
                         closestEnemy.element.remove();
                         enemies.splice(enemies.indexOf(closestEnemy), 1);
                         autoAttackCount--;
+                        bulletCooldown = false; // 총알 발사 후 쿨다운 해제
                     }
                 }, 50);
+
+                setTimeout(() => {
+                    bullet.remove(); // 1초 후 총알 제거
+                    bulletCooldown = false;
+                }, 1000); // 1초 후 총알 쿨다운 해제
             }
         }
 
@@ -226,12 +236,10 @@
                     playerRect.bottom > enemyRect.top
                 ) {
                     if (shieldCount > 0) {
-                        // 방어막이 있는 경우 적을 제거
                         shieldCount--;
                         enemy.remove();
                         enemies.splice(index, 1);
                     } else {
-                        // 방어막이 없으면 게임 오버
                         gameOver();
                     }
                 }
@@ -253,9 +261,9 @@
                     items.splice(index, 1);
 
                     if (itemObj.type === 'shield') {
-                        shieldCount = 1; // 방어막 횟수 설정
+                        shieldCount = 1;
                     } else if (itemObj.type === 'auto-attack') {
-                        autoAttackCount = 20; // 자동 공격 횟수 설정
+                        autoAttackCount = 20;
                     }
                 }
             });
@@ -270,8 +278,8 @@
 
         // 적과 아이템 생성 주기 설정
         setInterval(createEnemy, 2000);
-        setInterval(() => createItem('shield'), 10000); // 방어막 아이템 생성
-        setInterval(() => createItem('auto-attack'), 15000); // 자동 공격 아이템 생성
+        setInterval(() => createItem('shield'), 10000);
+        setInterval(() => createItem('auto-attack'), 15000);
 
         // 게임 루프 시작
         gameLoop();
