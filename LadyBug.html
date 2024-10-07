@@ -372,6 +372,7 @@
         // 게임 오버 함수
         function gameOver() {
             isGameOver = true;
+            stopGameTimer(); // 게임 오버 시 타이머 중단
             clearInterval(enemySpawnIntervalId);
             clearInterval(autoAttackInterval);
             if (shieldTimeout) clearTimeout(shieldTimeout);
