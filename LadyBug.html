@@ -27,8 +27,8 @@
 
         .enemy {
             position: absolute;
-            width: 40px;
-            height: 40px;
+            width: 50px; /* 히트박스 크기 맞춤 */
+            height: 50px; /* 히트박스 크기 맞춤 */
             background-color: black;
             border-radius: 50%;
         }
@@ -58,6 +58,7 @@
         let offsetY = 0;
         let enemies = [];
         let items = [];
+        let isGameOver = false;  // Game Over 상태 확인
 
         // 플레이어 초기 위치 설정
         player.style.left = playerX + 'px';
@@ -65,6 +66,8 @@
 
         // 터치 시작 시 플레이어의 위치를 기준으로 이동 처리
         gameArea.addEventListener('touchstart', function (e) {
+            if (isGameOver) return;  // Game Over 시 터치 무시
+
             const touch = e.touches[0];
             const playerRect = player.getBoundingClientRect();
             offsetX = touch.clientX - playerRect.left;
@@ -129,8 +132,19 @@
             items.push(item);
         }
 
+        // 게임 오버 함수
+        function gameOver() {
+            isGameOver = true;
+            const restart = confirm('Game Over! 다시 시작하시겠습니까?');
+            if (restart) {
+                location.reload();  // 페이지 새로고침으로 게임 재시작
+            }
+        }
+
         // 게임 루프 (requestAnimationFrame 사용)
         function gameLoop() {
+            if (isGameOver) return;  // Game Over 시 게임 루프 중단
+
             // 적 이동 및 충돌 체크
             enemies.forEach((enemyObj, index) => {
                 const enemy = enemyObj.element;
@@ -153,8 +167,7 @@
                     playerRect.top < enemyRect.bottom &&
                     playerRect.bottom > enemyRect.top
                 ) {
-                    alert('Game Over!');
-                    location.reload();
+                    gameOver();  // 충돌 시 게임 오버
                 }
             });
 
