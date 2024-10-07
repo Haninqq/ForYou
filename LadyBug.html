@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ladybug Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #gameArea {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        #player {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: red;
+            border-radius: 50%;
+        }
+
+        .enemy {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: black;
+            border-radius: 50%;
+        }
+
+        .item {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: gold;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameArea">
+        <div id="player"></div>
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const gameArea = document.getElementById('gameArea');
+        let playerX = window.innerWidth / 2;
+        let playerY = window.innerHeight / 2;
+        let playerSpeed = 5;
+        let isDragging = false;
+
+        // 플레이어 초기 위치 설정
+        player.style.left = playerX + 'px';
+        player.style.top = playerY + 'px';
+
+        // 터치로 플레이어 이동
+        gameArea.addEventListener('touchstart', function (e) {
+            isDragging = true;
+        });
+
+        gameArea.addEventListener('touchmove', function (e) {
+            if (isDragging) {
+                const touch = e.touches[0];
+                playerX = touch.clientX - player.offsetWidth / 2;
+                playerY = touch.clientY - player.offsetHeight / 2;
+                player.style.left = playerX + 'px';
+                player.style.top = playerY + 'px';
+            }
+        });
+
+        gameArea.addEventListener('touchend', function () {
+            isDragging = false;
+        });
+
+        // 적 생성 함수
+        function createEnemy() {
+            const enemy = document.createElement('div');
+            enemy.classList.add('enemy');
+            gameArea.appendChild(enemy);
+
+            // 적을 화면 가장자리에서 무작위로 생성
+            let startX, startY;
+            const side = Math.floor(Math.random() * 4);
+            switch (side) {
+                case 0: // 왼쪽
+                    startX = 0;
+                    startY = Math.random() * window.innerHeight;
+                    break;
+                case 1: // 오른쪽
+                    startX = window.innerWidth;
+                    startY = Math.random() * window.innerHeight;
+                    break;
+                case 2: // 위쪽
+                    startX = Math.random() * window.innerWidth;
+                    startY = 0;
+                    break;
+                case 3: // 아래쪽
+                    startX = Math.random() * window.innerWidth;
+                    startY = window.innerHeight;
+                    break;
+            }
+
+            enemy.style.left = startX + 'px';
+            enemy.style.top = startY + 'px';
+
+            const moveInterval = setInterval(() => {
+                const dx = playerX - startX;
+                const dy = playerY - startY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 5) {
+                    clearInterval(moveInterval);
+                    alert("Game Over!");
+                    location.reload();
+                }
+
+                // 적이 플레이어를 향해 이동
+                startX += dx / distance * playerSpeed;
+                startY += dy / distance * playerSpeed;
+                enemy.style.left = startX + 'px';
+                enemy.style.top = startY + 'px';
+            }, 30);
+        }
+
+        // 적이 주기적으로 생성되도록 설정
+        setInterval(createEnemy, 2000);
+
+        // 아이템 생성 함수 (간단히 아이템을 먹으면 적이 사라짐)
+        function createItem() {
+            const item = document.createElement('div');
+            item.classList.add('item');
+            item.style.left = Math.random() * window.innerWidth + 'px';
+            item.style.top = Math.random() * window.innerHeight + 'px';
+            gameArea.appendChild(item);
+
+            const itemInterval = setInterval(() => {
+                const itemRect = item.getBoundingClientRect();
+                const playerRect = player.getBoundingClientRect();
+
+                // 아이템 먹기 (충돌 체크)
+                if (
+                    playerRect.left < itemRect.right &&
+                    playerRect.right > itemRect.left &&
+                    playerRect.top < itemRect.bottom &&
+                    playerRect.bottom > itemRect.top
+                ) {
+                    clearInterval(itemInterval);
+                    item.remove();
+                    // 적 모두 제거
+                    document.querySelectorAll('.enemy').forEach(enemy => enemy.remove());
+                }
+            }, 30);
+        }
+
+        // 아이템이 주기적으로 생성되도록 설정
+        setInterval(createItem, 5000);
+    </script>
+
+</body>
+</html>
