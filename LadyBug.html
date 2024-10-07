@@ -77,6 +77,10 @@
         const gameArea = document.getElementById('gameArea');
         let playerX = window.innerWidth / 2;
         let playerY = window.innerHeight / 2;
+        let isDragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
         let enemies = [];
         let items = [];
         let bullets = [];
@@ -85,7 +89,7 @@
         let shieldTimeout;
         let autoAttackInterval;
         let autoAttackTimeLeft = 0;
-        let enemySpawnInterval = 500; // 적 생성 간격
+        let enemySpawnInterval = 500;
         let enemySpawnIntervalId;
         let shieldDuration = 5000;
         let autoAttackDuration = 10000;
@@ -93,23 +97,29 @@
         player.style.left = playerX + 'px';
         player.style.top = playerY + 'px';
 
-        gameArea.addEventListener('mousemove', function (e) {
-            if (!isGameOver) {
-                playerX = e.clientX - player.offsetWidth / 2;
-                playerY = e.clientY - player.offsetHeight / 2;
-                player.style.left = playerX + 'px';
-                player.style.top = playerY + 'px';
-            }
+        // 터치 시작 시, 터치한 위치와 플레이어 위치를 연결
+        gameArea.addEventListener('touchstart', function (e) {
+            if (isGameOver) return;
+            
+            const touch = e.touches[0];
+            const playerRect = player.getBoundingClientRect();
+            offsetX = touch.clientX - playerRect.left;
+            offsetY = touch.clientY - playerRect.top;
+            isDragging = true;
         });
 
         gameArea.addEventListener('touchmove', function (e) {
-            if (!isGameOver) {
-                const touch = e.touches[0];
-                playerX = touch.clientX - player.offsetWidth / 2;
-                playerY = touch.clientY - player.offsetHeight / 2;
-                player.style.left = playerX + 'px';
-                player.style.top = playerY + 'px';
-            }
+            if (!isDragging || isGameOver) return;
+
+            const touch = e.touches[0];
+            playerX = touch.clientX - offsetX;
+            playerY = touch.clientY - offsetY;
+            player.style.left = playerX + 'px';
+            player.style.top = playerY + 'px';
+        });
+
+        gameArea.addEventListener('touchend', function () {
+            isDragging = false;
         });
 
         // 적 생성 함수
@@ -286,8 +296,8 @@
                 const dy = playerY - enemyObj.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                enemyObj.x += dx / distance * 1;
-                enemyObj.y += dy / distance * 1;
+                enemyObj.x += dx / distance * 1.5;
+                enemyObj.y += dy / distance * 1.5;
 
                 enemy.style.left = enemyObj.x + 'px';
                 enemy.style.top = enemyObj.y + 'px';
