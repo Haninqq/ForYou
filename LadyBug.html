@@ -19,26 +19,41 @@
 
         #player {
             position: absolute;
-            width: 50px;
-            height: 50px;
+            width: 30px;
+            height: 30px;
             background-color: red;
             border-radius: 50%;
         }
 
         .enemy {
             position: absolute;
-            width: 50px; /* 히트박스 크기 맞춤 */
-            height: 50px; /* 히트박스 크기 맞춤 */
+            width: 30px; /* 플레이어와 동일한 크기 */
+            height: 30px; /* 플레이어와 동일한 크기 */
             background-color: black;
             border-radius: 50%;
         }
 
         .item {
             position: absolute;
-            width: 30px;
-            height: 30px;
-            background-color: gold;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
+        }
+
+        .bullet {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: yellow;
+            border-radius: 50%;
+        }
+
+        .item.shield {
+            background-color: blue;
+        }
+
+        .item.auto-attack {
+            background-color: pink;
         }
     </style>
 </head>
@@ -58,7 +73,9 @@
         let offsetY = 0;
         let enemies = [];
         let items = [];
-        let isGameOver = false;  // Game Over 상태 확인
+        let isGameOver = false;
+        let shieldCount = 0; // 방어막 횟수
+        let autoAttackCount = 0; // 자동 공격 횟수
 
         // 플레이어 초기 위치 설정
         player.style.left = playerX + 'px';
@@ -66,7 +83,7 @@
 
         // 터치 시작 시 플레이어의 위치를 기준으로 이동 처리
         gameArea.addEventListener('touchstart', function (e) {
-            if (isGameOver) return;  // Game Over 시 터치 무시
+            if (isGameOver) return;
 
             const touch = e.touches[0];
             const playerRect = player.getBoundingClientRect();
@@ -123,13 +140,18 @@
         }
 
         // 아이템 생성 함수
-        function createItem() {
+        function createItem(type) {
             const item = document.createElement('div');
             item.classList.add('item');
+            if (type === 'shield') {
+                item.classList.add('shield');
+            } else if (type === 'auto-attack') {
+                item.classList.add('auto-attack');
+            }
             item.style.left = Math.random() * window.innerWidth + 'px';
             item.style.top = Math.random() * window.innerHeight + 'px';
             gameArea.appendChild(item);
-            items.push(item);
+            items.push({ element: item, type });
         }
 
         // 게임 오버 함수
@@ -137,13 +159,49 @@
             isGameOver = true;
             const restart = confirm('Game Over! 다시 시작하시겠습니까?');
             if (restart) {
-                location.reload();  // 페이지 새로고침으로 게임 재시작
+                location.reload();
+            }
+        }
+
+        // 자동 공격 함수
+        function autoAttack() {
+            if (autoAttackCount > 0 && enemies.length > 0) {
+                const bullet = document.createElement('div');
+                bullet.classList.add('bullet');
+                gameArea.appendChild(bullet);
+
+                const closestEnemy = enemies[0]; // 가장 가까운 적을 선택 (간단히 첫 번째 적)
+                const bulletInterval = setInterval(() => {
+                    const dx = closestEnemy.x - playerX;
+                    const dy = closestEnemy.y - playerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    bullet.style.left = playerX + (dx / distance) * 10 + 'px';
+                    bullet.style.top = playerY + (dy / distance) * 10 + 'px';
+
+                    const bulletRect = bullet.getBoundingClientRect();
+                    const enemyRect = closestEnemy.element.getBoundingClientRect();
+
+                    // 총알이 적과 충돌한 경우
+                    if (
+                        bulletRect.left < enemyRect.right &&
+                        bulletRect.right > enemyRect.left &&
+                        bulletRect.top < enemyRect.bottom &&
+                        bulletRect.bottom > enemyRect.top
+                    ) {
+                        bullet.remove();
+                        clearInterval(bulletInterval);
+                        closestEnemy.element.remove();
+                        enemies.splice(enemies.indexOf(closestEnemy), 1);
+                        autoAttackCount--;
+                    }
+                }, 50);
             }
         }
 
         // 게임 루프 (requestAnimationFrame 사용)
         function gameLoop() {
-            if (isGameOver) return;  // Game Over 시 게임 루프 중단
+            if (isGameOver) return;
 
             // 적 이동 및 충돌 체크
             enemies.forEach((enemyObj, index) => {
@@ -152,13 +210,13 @@
                 const dy = playerY - enemyObj.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                enemyObj.x += dx / distance * 2; // 적 속도
-                enemyObj.y += dy / distance * 2;
+                enemyObj.x += dx / distance * 1.5; // 적 속도
+                enemyObj.y += dy / distance * 1.5;
 
                 enemy.style.left = enemyObj.x + 'px';
                 enemy.style.top = enemyObj.y + 'px';
 
-                // 충돌 체크 (히트박스 크기 조정)
+                // 충돌 체크
                 const playerRect = player.getBoundingClientRect();
                 const enemyRect = enemy.getBoundingClientRect();
                 if (
@@ -167,12 +225,21 @@
                     playerRect.top < enemyRect.bottom &&
                     playerRect.bottom > enemyRect.top
                 ) {
-                    gameOver();  // 충돌 시 게임 오버
+                    if (shieldCount > 0) {
+                        // 방어막이 있는 경우 적을 제거
+                        shieldCount--;
+                        enemy.remove();
+                        enemies.splice(index, 1);
+                    } else {
+                        // 방어막이 없으면 게임 오버
+                        gameOver();
+                    }
                 }
             });
 
             // 아이템 충돌 체크
-            items.forEach((item, index) => {
+            items.forEach((itemObj, index) => {
+                const item = itemObj.element;
                 const playerRect = player.getBoundingClientRect();
                 const itemRect = item.getBoundingClientRect();
 
@@ -185,20 +252,26 @@
                     item.remove();
                     items.splice(index, 1);
 
-                    // 적 모두 제거
-                    enemies.forEach(enemyObj => {
-                        enemyObj.element.remove();
-                    });
-                    enemies = [];
+                    if (itemObj.type === 'shield') {
+                        shieldCount = 1; // 방어막 횟수 설정
+                    } else if (itemObj.type === 'auto-attack') {
+                        autoAttackCount = 20; // 자동 공격 횟수 설정
+                    }
                 }
             });
 
-            requestAnimationFrame(gameLoop);  // requestAnimationFrame을 통해 부드러운 애니메이션 구현
+            // 자동 공격 실행
+            if (autoAttackCount > 0) {
+                autoAttack();
+            }
+
+            requestAnimationFrame(gameLoop);
         }
 
         // 적과 아이템 생성 주기 설정
         setInterval(createEnemy, 2000);
-        setInterval(createItem, 5000);
+        setInterval(() => createItem('shield'), 10000); // 방어막 아이템 생성
+        setInterval(() => createItem('auto-attack'), 15000); // 자동 공격 아이템 생성
 
         // 게임 루프 시작
         gameLoop();
