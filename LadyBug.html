@@ -64,12 +64,22 @@
             background-color: rgba(135, 206, 235, 0.5);
             pointer-events: none;
         }
+        #timer {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: rgba(128, 128, 128, 0.7); /* 반투명한 회색 */
+            font-family: Arial, sans-serif;
+        }
     </style>
 </head>
 <body>
 
     <div id="gameArea">
         <div id="player"></div>
+        <div id="timer">00:00</div> <!-- 시간 표시 -->
     </div>
 
     <script>
