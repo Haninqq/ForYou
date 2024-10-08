@@ -178,12 +178,23 @@ createEnemy();
             if (isGameOver) return;
             const touch = e.touches[0];
             player.startDrag(touch.clientX, touch.clientY);
+            }
         });
 
         gameArea.addEventListener('touchmove', function (e) {
             if (isGameOver) return;
             const touch = e.touches[0];
-            player.move(touch.clientX, touch.clientY);
+            if (player.isDragging) {
+                player.move(touch.clientX, touch.clientY);
+            } else {
+                // 원격 컨트롤러처럼 사용자가 터치 이동 시 방향을 업데이트
+                const dx = touch.clientX - player.x;
+                const dy = touch.clientY - player.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                player.x += (dx / distance) * 5;
+                player.y += (dy / distance) * 5;
+                player.updatePosition();
+            }
         });
 
         gameArea.addEventListener('touchend', function () {
