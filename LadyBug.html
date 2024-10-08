@@ -20,16 +20,16 @@
 
         #player {
             position: absolute;
-            width: 15px; /* 크기를 반으로 줄임 */
-            height: 15px; /* 크기를 반으로 줄임 */
+            width: 15px;
+            height: 15px;
             background-color: red;
             border-radius: 50%;
         }
 
         .enemy, .bullet {
             position: absolute;
-            width: 15px; /* 적의 크기를 반으로 줄임 */
-            height: 15px; /* 적의 크기를 반으로 줄임 */
+            width: 15px;
+            height: 15px;
             border-radius: 50%;
         }
 
@@ -39,8 +39,8 @@
 
         .item {
             position: absolute;
-            width: 10px; /* 아이템의 크기 조정 */
-            height: 10px; /* 아이템의 크기 조정 */
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
         }
 
@@ -52,9 +52,17 @@
             background-color: pink;
         }
 
+        .item.explosion {
+            background-color: orange;
+        }
+
+        .item.time-freeze {
+            background-color: lightblue;
+        }
+
         .bullet {
-            width: 5px;  /* 탄환 크기 */
-            height: 5px;  /* 탄환 크기 */
+            width: 5px;
+            height: 5px;
             background-color: blue;
         }
 
@@ -64,279 +72,366 @@
             background-color: rgba(135, 206, 235, 0.5);
             pointer-events: none;
         }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
     </style>
 </head>
 <body>
 
     <div id="gameArea">
         <div id="player"></div>
+        <div id="score">Score: 0</div>
     </div>
 
     <script>
-        const player = document.getElementById('player');
-        const gameArea = document.getElementById('gameArea');
-        let playerX = window.innerWidth / 2;
-        let playerY = window.innerHeight / 2;
-        let isDragging = false;
-        let offsetX = 0;
-        let offsetY = 0;
+        class GameObject {
+            constructor(element, x, y) {
+                this.element = element;
+                this.x = x;
+                this.y = y;
+                this.updatePosition();
+            }
 
+            updatePosition() {
+                this.element.style.left = this.x + 'px';
+                this.element.style.top = this.y + 'px';
+            }
+        }
+
+        class Player extends GameObject {
+            constructor(element) {
+                super(element, window.innerWidth / 2 - element.offsetWidth / 2, window.innerHeight / 2 - element.offsetHeight / 2);
+                this.isDragging = false;
+                this.offsetX = 0;
+                this.offsetY = 0;
+            }
+
+            startDrag(touchX, touchY) {
+                const playerRect = this.element.getBoundingClientRect();
+                this.offsetX = touchX - playerRect.left;
+                this.offsetY = touchY - playerRect.top;
+                this.isDragging = true;
+            }
+
+            move(touchX, touchY) {
+                if (this.isDragging) {
+                    this.x = touchX - this.offsetX;
+                    this.y = touchY - this.offsetY;
+                    this.updatePosition();
+                }
+            }
+
+            stopDrag() {
+                this.isDragging = false;
+            }
+
+            moveTo(x, y) {
+                this.x = x;
+                this.y = y;
+                this.updatePosition();
+            }
+        }
+
+        class Enemy extends GameObject {
+            constructor(element, x, y) {
+                super(element, x, y);
+            }
+
+            moveTowards(targetX, targetY) {
+                const dx = targetX - this.x;
+                const dy = targetY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance > 0) {
+                    this.x += (dx / distance) * 0.7;
+                    this.y += (dy / distance) * 0.7;
+                    this.updatePosition();
+                }
+            }
+        }
+
+        const gameArea = document.getElementById('gameArea');
+        const playerElement = document.getElementById('player');
+        const scoreElement = document.getElementById('score');
+        let player = new Player(playerElement);
         let enemies = [];
         let items = [];
-        let bullets = [];
+        let score = 0;
         let isGameOver = false;
-        let shieldActive = false;
-        let shieldTimeout;
-        let autoAttackInterval;
-        let autoAttackTimeLeft = 0;
-        let enemySpawnInterval = 500;
+        let isTimeFrozen = false;
+        let enemySpawnInterval = 1000;
         let enemySpawnIntervalId;
-        let shieldDuration = 5000;
-        let autoAttackDuration = 10000;
 
-        player.style.left = playerX + 'px';
-        player.style.top = playerY + 'px';
+// 적 생성 주기 초기값 설정
+createEnemy();
 
-        // 터치 시작 시, 터치한 위치와 플레이어 위치를 연결
+        // 터치 이벤트 처리
         gameArea.addEventListener('touchstart', function (e) {
             if (isGameOver) return;
-            
             const touch = e.touches[0];
-            const playerRect = player.getBoundingClientRect();
-            offsetX = touch.clientX - playerRect.left;
-            offsetY = touch.clientY - playerRect.top;
-            isDragging = true;
+            player.startDrag(touch.clientX, touch.clientY);
         });
 
         gameArea.addEventListener('touchmove', function (e) {
-            if (!isDragging || isGameOver) return;
-
+            if (isGameOver) return;
             const touch = e.touches[0];
-            playerX = touch.clientX - offsetX;
-            playerY = touch.clientY - offsetY;
-            player.style.left = playerX + 'px';
-            player.style.top = playerY + 'px';
+            player.move(touch.clientX, touch.clientY);
         });
 
         gameArea.addEventListener('touchend', function () {
-            isDragging = false;
+            player.stopDrag();
+        });
+
+        // 마우스 이벤트 처리 (마우스를 따라 플레이어 이동)
+        let lastMouseMoveTime = 0;
+        gameArea.addEventListener('mousemove', function (e) {
+            if (isGameOver) return;
+            const now = Date.now();
+            if (now - lastMouseMoveTime > 16) { // Throttle mouse move to 60fps
+                player.moveTo(e.clientX, e.clientY);
+                lastMouseMoveTime = now;
+            }
         });
 
         // 적 생성 함수
         function createEnemy() {
-            const enemyCount = Math.random() < 0.5 ? 1 : 2; // 50% 확률로 한 번에 두 마리 생성
-            for (let i = 0; i < enemyCount; i++) {
-                const enemy = document.createElement('div');
-                enemy.classList.add('enemy');
-                gameArea.appendChild(enemy);
+            const enemyElement = document.createElement('div');
+            enemyElement.classList.add('enemy');
+            gameArea.appendChild(enemyElement);
 
-                let startX, startY;
-                const side = Math.floor(Math.random() * 4);
-                switch (side) {
-                    case 0:
-                        startX = 0;
-                        startY = Math.random() * window.innerHeight;
-                        break;
-                    case 1:
-                        startX = window.innerWidth;
-                        startY = Math.random() * window.innerHeight;
-                        break;
-                    case 2:
-                        startX = Math.random() * window.innerWidth;
-                        startY = 0;
-                        break;
-                    case 3:
-                        startX = Math.random() * window.innerWidth;
-                        startY = window.innerHeight;
-                        break;
-                }
+            const side = Math.floor(Math.random() * 4);
+            let startX, startY;
+            switch (side) {
+                case 0:
+                    startX = 0;
+                    startY = Math.random() * window.innerHeight;
+                    break;
+                case 1:
+                    startX = window.innerWidth;
+                    startY = Math.random() * window.innerHeight;
+                    break;
+                case 2:
+                    startX = Math.random() * window.innerWidth;
+                    startY = 0;
+                    break;
+                case 3:
+                    startX = Math.random() * window.innerWidth;
+                    startY = window.innerHeight;
+                    break;
+            }
 
-                enemy.style.left = startX + 'px';
-                enemy.style.top = startY + 'px';
+            const enemy = new Enemy(enemyElement, startX, startY);
+            enemies.push(enemy);
+        }
 
-                enemies.push({ element: enemy, x: startX, y: startY });
+        // 아이템 생성 함수
+        function createItem(type) {
+            const itemElement = document.createElement('div');
+            itemElement.classList.add('item');
+            if (type === 'shield') {
+                itemElement.classList.add('shield');
+            } else if (type === 'auto-attack') {
+                itemElement.classList.add('auto-attack');
+            } else if (type === 'explosion') {
+                itemElement.classList.add('explosion');
+            } else if (type === 'time-freeze') {
+                itemElement.classList.add('time-freeze');
+            }
+            gameArea.appendChild(itemElement);
+
+            const x = Math.random() * window.innerWidth;
+            const y = Math.random() * window.innerHeight;
+            const item = new GameObject(itemElement, x, y);
+            items.push({ element: itemElement, type: type });
+        }
+
+        // 아이템 사용 함수
+        function useItem(item) {
+            if (item.type === 'shield') {
+                activateShield();
+            } else if (item.type === 'auto-attack') {
+                activateAutoAttack();
+            } else if (item.type === 'explosion') {
+                activateExplosion();
+            } else if (item.type === 'time-freeze') {
+                activateTimeFreeze();
             }
         }
 
-        // 보호막 생성 함수
+        // 방어막 활성화 함수
         function activateShield() {
-            if (!shieldActive) {
-                const shield = document.createElement('div');
-                shield.classList.add('shield-field');
-                shield.style.width = player.offsetWidth * 3 + 'px';
-                shield.style.height = player.offsetHeight * 3 + 'px';
-                shield.style.left = playerX - player.offsetWidth + 'px';
-                shield.style.top = playerY - player.offsetHeight + 'px';
-                gameArea.appendChild(shield);
-                shieldActive = true;
+            const shieldField = document.createElement('div');
+            shieldField.classList.add('shield-field');
+            shieldField.style.width = player.element.offsetWidth * 3 + 'px';
+            shieldField.style.height = player.element.offsetHeight * 3 + 'px';
+            shieldField.style.left = player.x - player.element.offsetWidth + 'px';
+                shieldField.style.top = player.y - player.element.offsetHeight + 'px';
 
-                function moveShield() {
-                    shield.style.left = playerX - player.offsetWidth + 'px';
-                    shield.style.top = playerY - player.offsetHeight + 'px';
-                    if (shieldActive) requestAnimationFrame(moveShield);
-                }
-                moveShield();
+                // 적과 보호막 충돌 체크
+                enemies.forEach((enemy, index) => {
+                    const shieldRadius = parseFloat(shieldField.style.width) / 2;
+                    const shieldCenterX = player.x;
+                    const shieldCenterY = player.y;
+                    const enemyRadius = enemy.element.offsetWidth / 2;
+                    const enemyCenterX = enemy.x + enemyRadius;
+                    const enemyCenterY = enemy.y + enemyRadius;
+                    const distance = Math.hypot(shieldCenterX - enemyCenterX, shieldCenterY - enemyCenterY);
 
-                shieldTimeout = setTimeout(() => {
-                    shield.remove();
-                    shieldActive = false;
-                }, shieldDuration);
-            } else {
-                clearTimeout(shieldTimeout);
-                shieldTimeout = setTimeout(() => {
-                    document.querySelector('.shield-field').remove();
-                    shieldActive = false;
-                }, shieldDuration);
-            }
-        }
+                    if (distance < shieldRadius + enemyRadius) {
+                        enemy.element.remove();
+                        enemies.splice(index, 1);
+                        score++;
+                        scoreElement.textContent = `Score: ${score}`;
+                    }
+                });
+            gameArea.appendChild(shieldField);
 
-        // 적과 보호막 충돌 확인
-        function checkShieldCollision() {
-            if (shieldActive) {
-                const shieldRect = document.querySelector('.shield-field').getBoundingClientRect();
-                enemies.forEach((enemyObj, index) => {
-                    const enemyRect = enemyObj.element.getBoundingClientRect();
+            let shieldDuration = 5000; // 방어막 지속 시간 (5초)
+            const shieldInterval = setInterval(() => {
+                shieldField.style.left = player.x - player.element.offsetWidth + 'px';
+                shieldField.style.top = player.y - player.element.offsetHeight + 'px';
+
+                // 적과 보호막 충돌 체크
+                enemies.forEach((enemy, index) => {
+                    const shieldRect = shieldField.getBoundingClientRect();
+                    const enemyRect = enemy.element.getBoundingClientRect();
+
                     if (
                         shieldRect.left < enemyRect.right &&
                         shieldRect.right > enemyRect.left &&
                         shieldRect.top < enemyRect.bottom &&
                         shieldRect.bottom > enemyRect.top
                     ) {
-                        enemyObj.element.remove();
-                        enemies.splice(index, 1); // 적 제거
+                        enemy.element.remove();
+                        enemies.splice(index, 1);
+                        score++;
+                        scoreElement.textContent = `Score: ${score}`;
                     }
                 });
-            }
+            }, 16);
+
+            setTimeout(() => {
+                clearInterval(shieldInterval);
+                shieldField.remove();
+            }, shieldDuration);
         }
 
         // 자동 공격 활성화 함수
         function activateAutoAttack() {
-            if (autoAttackTimeLeft <= 0) {
-                autoAttackTimeLeft = autoAttackDuration;
-                autoAttackInterval = setInterval(() => {
-                    if (autoAttackTimeLeft > 0) {
-                        autoAttack();
-                        autoAttackTimeLeft -= 500;
-                    } else {
-                        clearInterval(autoAttackInterval);
-                    }
-                }, 500); // 0.5초 간격으로 발사
-            } else {
-                autoAttackTimeLeft += autoAttackDuration; // 지속 시간 연장
-            }
-        }
+            const bulletSpeed = 5;
+            enemies.forEach((enemy) => {
+                const bulletElement = document.createElement('div');
+                bulletElement.classList.add('bullet');
+                gameArea.appendChild(bulletElement);
 
-        // 자동 공격 발사 함수
-        function autoAttack() {
-            if (enemies.length > 0) {
-                const bullet = document.createElement('div');
-                bullet.classList.add('bullet');
-                gameArea.appendChild(bullet);
-
-                let closestEnemy = enemies[0];
-                let minDistance = Number.MAX_SAFE_INTEGER;
-
-                enemies.forEach(enemyObj => {
-                    const dx = enemyObj.x - playerX;
-                    const dy = enemyObj.y - playerY;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        closestEnemy = enemyObj;
-                    }
-                });
-
-                const bulletX = playerX;
-                const bulletY = playerY;
-                const bulletSpeed = 5;
-                const dx = closestEnemy.x - bulletX;
-                const dy = closestEnemy.y - bulletY;
+                const bullet = new GameObject(bulletElement, player.x, player.y);
+                const dx = enemy.x - player.x;
+                const dy = enemy.y - player.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 const moveX = (dx / distance) * bulletSpeed;
                 const moveY = (dy / distance) * bulletSpeed;
 
                 function moveBullet() {
                     if (isGameOver) {
-                        bullet.remove();
+                        bullet.element.remove();
                         return;
                     }
 
-                    const bulletRect = bullet.getBoundingClientRect();
-                    const enemyRect = closestEnemy.element.getBoundingClientRect();
+                    bullet.x += moveX;
+                    bullet.y += moveY;
+                    bullet.updatePosition();
 
-                    if (
-                        bulletRect.left < enemyRect.right &&
-                        bulletRect.right > enemyRect.left &&
-                        bulletRect.top < enemyRect.bottom &&
-                        bulletRect.bottom > enemyRect.top
-                    ) {
-                        bullet.remove();
-                        closestEnemy.element.remove();
-                        enemies.splice(enemies.indexOf(closestEnemy), 1);
-                        return;
+                    enemies.forEach((targetEnemy, index) => {
+                        const bulletRect = bullet.element.getBoundingClientRect();
+                        const enemyRect = targetEnemy.element.getBoundingClientRect();
+
+                        if (
+                            bulletRect.left < enemyRect.right &&
+                            bulletRect.right > enemyRect.left &&
+                            bulletRect.top < enemyRect.bottom &&
+                            bulletRect.bottom > enemyRect.top
+                        ) {
+                            targetEnemy.element.remove();
+                            enemies.splice(index, 1);
+                            score++;
+                            scoreElement.textContent = `Score: ${score}`;
+                        }
+                    });
+
+                    if (bullet.x < 0 || bullet.x > window.innerWidth || bullet.y < 0 || bullet.y > window.innerHeight) {
+                        bullet.element.remove();
+                    } else {
+                        requestAnimationFrame(moveBullet);
                     }
-
-                    bullet.style.left = parseFloat(bullet.style.left || bulletX) + moveX + 'px';
-                    bullet.style.top = parseFloat(bullet.style.top || bulletY) + moveY + 'px';
-
-                    requestAnimationFrame(moveBullet);
                 }
 
                 moveBullet();
-            }
+            });
+        }
+
+        // 폭발 아이템 활성화 함수
+        function activateExplosion() {
+            enemies.slice().forEach((enemy, index) => {
+                enemy.element.remove();
+                enemies.splice(index, 1);
+                score++;
+            });
+            scoreElement.textContent = `Score: ${score}`;
+        }
+
+        // 시간 멈춤 아이템 활성화 함수
+        function activateTimeFreeze() {
+            if (isTimeFrozen) return; // 중복 사용 방지
+            isTimeFrozen = true;
+            setTimeout(() => {
+                isTimeFrozen = false;
+            }, 3000);
         }
 
         // 게임 루프
         function gameLoop() {
             if (isGameOver) return;
 
-            enemies.forEach((enemyObj, index) => {
-                const enemy = enemyObj.element;
-                const dx = playerX - enemyObj.x;
-                const dy = playerY - enemyObj.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+            if (!isTimeFrozen) {
+                enemies.forEach((enemy, index) => {
+                    enemy.moveTowards(player.x, player.y);
 
-                enemyObj.x += dx / distance * 0.7;
-                enemyObj.y += dy / distance * 0.7;
-
-                enemy.style.left = enemyObj.x + 'px';
-                enemy.style.top = enemyObj.y + 'px';
-
-                const playerRect = player.getBoundingClientRect();
-                const enemyRect = enemy.getBoundingClientRect();
-                if (
-                    playerRect.left < enemyRect.right &&
-                    playerRect.right > enemyRect.left &&
-                    playerRect.top < enemyRect.bottom &&
-                    playerRect.bottom > enemyRect.top
-                ) {
-                    if (!shieldActive) {
+                    // 충돌 체크
+                    const playerRadius = player.element.offsetWidth / 2;
+                    const playerCenterX = player.x + playerRadius;
+                    const playerCenterY = player.y + playerRadius;
+                    const enemyRadius = enemy.element.offsetWidth / 2;
+                    const enemyCenterX = enemy.x + enemyRadius;
+                    const enemyCenterY = enemy.y + enemyRadius;
+                    const distance = Math.hypot(playerCenterX - enemyCenterX, playerCenterY - enemyCenterY);
+                    if (distance < playerRadius + enemyRadius) {
+                        isGameOver = true;
+                        gameOver();
                         gameOver();
                     }
-                }
-            });
+                });
+            }
 
-            checkShieldCollision(); // 보호막 충돌 확인
-
-            items.forEach((itemObj, index) => {
-                const item = itemObj.element;
-                const playerRect = player.getBoundingClientRect();
-                const itemRect = item.getBoundingClientRect();
-
+            items.forEach((item, index) => {
+                const playerRect = player.element.getBoundingClientRect();
+                const itemRect = item.element.getBoundingClientRect();
                 if (
                     playerRect.left < itemRect.right &&
                     playerRect.right > itemRect.left &&
                     playerRect.top < itemRect.bottom &&
                     playerRect.bottom > itemRect.top
                 ) {
-                    item.remove();
+                    item.element.remove();
                     items.splice(index, 1);
-
-                    if (itemObj.type === 'shield') {
-                        activateShield(); // 보호막 활성화
-                    } else if (itemObj.type === 'auto-attack') {
-                        activateAutoAttack(); // 자동 공격 활성화
-                    }
+                    useItem(item);
                 }
             });
 
@@ -347,46 +442,36 @@
         function gameOver() {
             isGameOver = true;
             clearInterval(enemySpawnIntervalId);
-            clearInterval(autoAttackInterval);
-            if (shieldTimeout) clearTimeout(shieldTimeout);
+            clearInterval(itemSpawnIntervalId);
             const restart = confirm('Game Over! 다시 시작하시겠습니까?');
             if (restart) {
                 location.reload();
             }
         }
 
-        // 적 생성 시작
+        // 적 생성 시작 (점차 많은 적이 나오도록 설정)
         function startEnemySpawn() {
             enemySpawnIntervalId = setInterval(() => {
                 createEnemy();
+                if (enemySpawnInterval > 300) {
+                    enemySpawnInterval -= 50; // 점차 적 생성 주기를 줄임
+                    clearInterval(enemySpawnIntervalId);
+                    startEnemySpawn();
+                }
             }, enemySpawnInterval);
         }
 
-        // 아이템 생성 시작 (아이템 생성 주기 반으로 줄임)
-        function startItemSpawn() {
-            setInterval(() => createItem('shield'), 9000);  // 9초마다 보호막 생성
-            setInterval(() => createItem('auto-attack'), 7500);  // 7.5초마다 자동 공격 아이템 생성
-        }
-
-        // 아이템 생성 함수
-        function createItem(type) {
-            const item = document.createElement('div');
-            item.classList.add('item');
-            if (type === 'shield') {
-                item.classList.add('shield');
-            } else if (type === 'auto-attack') {
-                item.classList.add('auto-attack');
-            }
-            item.style.left = Math.random() * window.innerWidth + 'px';
-            item.style.top = Math.random() * window.innerHeight + 'px';
-            gameArea.appendChild(item);
-            items.push({ element: item, type });
-        }
-
-        gameLoop();
         startEnemySpawn();
-        startItemSpawn(); // 아이템 생성 시작
 
+        // 아이템 생성 시작
+        const itemSpawnIntervalId = setInterval(() => {
+            if (items.length < 5) { // 화면에 최대 5개의 아이템만 유지
+                createItem(Math.random() < 0.25 ? 'shield' : Math.random() < 0.33 ? 'auto-attack' : Math.random() < 0.5 ? 'explosion' : 'time-freeze');
+            }
+        }, 5000);
+
+        // 게임 시작
+        gameLoop();
     </script>
 
 </body>
