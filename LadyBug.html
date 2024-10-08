@@ -183,9 +183,7 @@ createEnemy();
         gameArea.addEventListener('touchmove', function (e) {
             if (isGameOver) return;
             const touch = e.touches[0];
-            requestAnimationFrame(() => {
-                player.move(touch.clientX, touch.clientY);
-            });
+            player.move(touch.clientX, touch.clientY);
         });
 
         gameArea.addEventListener('touchend', function () {
@@ -414,7 +412,8 @@ createEnemy();
                     const enemyCenterX = enemy.x + enemyRadius;
                     const enemyCenterY = enemy.y + enemyRadius;
                     const distance = Math.hypot(playerCenterX - enemyCenterX, playerCenterY - enemyCenterY);
-                    if (distance < playerRadius + enemyRadius) {
+                    const bufferDistance = 5; // 여유 공간 추가
+                    if (distance < playerRadius + enemyRadius - bufferDistance) {
                         isGameOver = true;
                         gameOver();
                         gameOver();
