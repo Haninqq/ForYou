@@ -183,7 +183,9 @@ createEnemy();
         gameArea.addEventListener('touchmove', function (e) {
             if (isGameOver) return;
             const touch = e.touches[0];
-            player.move(touch.clientX, touch.clientY);
+            requestAnimationFrame(() => {
+                player.move(touch.clientX, touch.clientY);
+            });
         });
 
         gameArea.addEventListener('touchend', function () {
